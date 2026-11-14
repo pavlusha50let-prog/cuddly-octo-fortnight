@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Самомодулирующийся FM-синтезатор v2.0</title>
+  <style id="dynamic-style">
+    :root {
+      --hue: 210;
+      --bg-color: hsl(var(--hue), 25%, 12%);
+      --card-color: hsl(var(--hue), 25%, 18%);
+      --accent-color: hsl(var(--hue), 85%, 60%);
+      --text-color: #f0f4f8;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background-color 0.3s ease;
+    }
+    .container {
+      max-width: 860px;
+      width: 100%;
+      background: var(--card-color);
+      padding: 1.8rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      border: 1px solid var(--accent-color);
+      box-sizing: border-box;
+    }
+    h1 {
+      margin-top: 0;
+      color: var(--accent-color);
+      font-size: 1.5rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+      font-family: monospace;
+      font-size: 0.92rem;
+      background: rgba(0,0,0,0.28);
+      padding: 0.9rem;
+      border-radius: 8px;
+    }
+    .dna-chain {
+      font-family: monospace;
+      font-size: 0.85rem;
+      background: rgba(0,0,0,0.22);
+      border-left: 3px solid var(--accent-color);
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      color: #e2e8f0;
+      word-break: break-word;
+    }
+    canvas {
+      width: 100%;
+      height: 110px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    .keyboard-wrapper {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      user-select: none;
+    }
+    .keyboard-hint {
+      font-size: 0.85rem;
+      opacity: 0.85;
+      margin-bottom: 0.7rem;
+      text-align: center;
+    }
+    .keyboard {
+      position: relative;
+      display: flex;
+      height: 130px;
+      max-width: 580px;
+      margin: 0 auto;
+    }
+    .key-white {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #94a3b8;
+      border-radius: 0 0 8px 8px;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 8px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .key-white span.shortcut {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .key-white.active {
+      background: var(--accent-color);
+      color: #0f172a;
+      transform: translateY(3px);
+    }
+    .key-black {
+      position: absolute;
+      width: 8.5%;
+      height: 80px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 0 0 6px 6px;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 6px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .key-black span.shortcut {
+      font-size: 0.65rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .key-black.active {
+      background: var(--accent-color);
+      color: #0f172a;
+      transform: translateY(3px);
+    }
+    .controls {
+      display: flex;
+      gap: 0.7rem;
+      margin-bottom: 0.8rem;
+      flex-wrap: wrap;
+    }
+    button {
+      background: var(--accent-color);
+      color: #111;
+      border: none;
+      padding: 0.7rem 1.1rem;
+      font-size: 0.9rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+    }
+    button.dna-btn {
+      background: #8b5cf6;
+      color: #fff;
+    }
+    button.audio-btn {
+      background: #10b981;
+      color: #fff;
+    }
+    button.audio-btn.playing {
+      background: #ef4444;
+    }
+    .status-bar {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #a7f3d0;
+      margin-bottom: 0.8rem;
+      min-height: 1.2em;
+    }
+    textarea {
+      width: 100%;
+      height: 160px;
+      background: #0d1117;
+      color: #58a6ff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .clone-box {
+      margin-top: 1.2rem;
+      border: 2px solid var(--accent-color);
+      border-radius: 12px;
+      padding: 1rem;
+      background: #090d16;
+    }
+    .clone-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    iframe#clone-frame {
+      width: 100%;
+      height: 620px;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      background: #0f172a;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🧬 FM-синтезатор с генетической памятью (v2.0)</h1>
+  <p>Каждое нажатие клавиши (<strong>A–K</strong>) звучит полифонически, мутирует тембр и записывает ноту в цепочку <code>melodyDNA</code> для следующих поколений.</p>
+
+  <div class="stats">
+    <div>Поколение: <strong id="gen-display">1</strong></div>
+    <div>Нота / Тон: <strong id="note-display">A3 (220 Гц)</strong></div>
+    <div>Модулятор: <strong id="modfreq-display">55 Гц</strong></div>
+    <div>Глубина FM: <strong id="depth-display">120</strong></div>
+    <div>Форма волны: <strong id="wave-display">sine</strong></div>
+  </div>
+
+  <div class="dna-chain" id="dna-display">🧬 Память предков: пока пуста (сыграйте мелодию)</div>
+
+  <canvas id="waveCanvas"></canvas>
+
+  <div class="keyboard-wrapper">
+    <div class="keyboard-hint">Кликайте по клавишам или играйте: A W S E D F T G Y H U J K</div>
+    <div class="keyboard" id="piano-keyboard"></div>
+  </div>
+
+  <div class="controls">
+    <button id="play-dna-btn" class="dna-btn" type="button">▶️ Воспроизвести ДНК предков</button>
+    <button id="audio-toggle" class="audio-btn" type="button">🔊 Включить непрерывный звук</button>
+    <button id="download-btn" type="button">💾 Скачать .html</button>
+    <button id="run-btn" class="secondary" type="button">🚀 Запустить клон</button>
+    <button id="copy-btn" class="secondary" type="button">📋 Копировать HTML</button>
+  </div>
+
+  <div class="status-bar" id="status-bar">Готов к работе. Нажмите клавишу или прослушайте ДНК предков.</div>
+
+  <textarea id="code-output" readonly placeholder="Здесь появится обновленный самомодулированный HTML-код..."></textarea>
+
+  <div class="clone-box" id="clone-box" style="display: none;">
+    <div class="clone-header">
+      <span>🧬 Живой экземпляр следующего поколения</span>
+      <button id="close-clone-btn" class="secondary" type="button" style="padding: 0.3rem 0.7rem;">✖ Закрыть окно</button>
+    </div>
+    <iframe id="clone-frame"></iframe>
+  </div>
+</div>
+
+<script id="genome-data">
+window.GENOME = {
+  "generation": 1,
+  "noteName": "A3",
+  "midiNote": 57,
+  "hue": 210,
+  "carrierFreq": 220,
+  "modFreq": 55,
+  "modDepth": 120,
+  "waveType": "sine",
+  "lastDeltaMs": 400,
+  "melodyDNA": []
+};
+</script>
+
+<script id="core-logic">
+(function() {
+  let state = Object.assign({}, window.GENOME);
+  if (!Array.isArray(state.melodyDNA)) state.melodyDNA = [];
+
+  let lastPressTime = null;
+  let isPlayingDNA = false;
+  let dnaTimers = [];
+
+  const NOTES = [
+    { note: 'C4',  midi: 60, freq: 261.63, key: 'a', type: 'white' },
+    { note: 'C#4', midi: 61, freq: 277.18, key: 'w', type: 'black', left: 8.2 },
+    { note: 'D4',  midi: 62, freq: 293.66, key: 's', type: 'white' },
+    { note: 'D#4', midi: 63, freq: 311.13, key: 'e', type: 'black', left: 20.7 },
+    { note: 'E4',  midi: 64, freq: 329.63, key: 'd', type: 'white' },
+    { note: 'F4',  midi: 65, freq: 349.23, key: 'f', type: 'white' },
+    { note: 'F#4', midi: 66, freq: 369.99, key: 't', type: 'black', left: 45.7 },
+    { note: 'G4',  midi: 67, freq: 392.00, key: 'g', type: 'white' },
+    { note: 'G#4', midi: 68, freq: 415.30, key: 'y', type: 'black', left: 58.2 },
+    { note: 'A4',  midi: 69, freq: 440.00, key: 'h', type: 'white' },
+    { note: 'A#4', midi: 70, freq: 466.16, key: 'u', type: 'black', left: 70.7 },
+    { note: 'B4',  midi: 71, freq: 493.88, key: 'j', type: 'white' },
+    { note: 'C5',  midi: 72, freq: 523.25, key: 'k', type: 'white' }
+  ];
+
+  let audioCtx = null;
+  let droneCarrier = null;
+  let droneMod = null;
+  let droneModGain = null;
+  let droneMasterGain = null;
+  let isDronePlaying = false;
+
+  const playDnaBtn = document.getElementById('play-dna-btn');
+  const audioBtn = document.getElementById('audio-toggle');
+  const downloadBtn = document.getElementById('download-btn');
+  const runBtn = document.getElementById('run-btn');
+  const copyBtn = document.getElementById('copy-btn');
+  const codeOutput = document.getElementById('code-output');
+  const keyboardEl = document.getElementById('piano-keyboard');
+  const cloneBox = document.getElementById('clone-box');
+  const cloneFrame = document.getElementById('clone-frame');
+  const closeCloneBtn = document.getElementById('close-clone-btn');
+  const statusBar = document.getElementById('status-bar');
+
+  function logStatus(msg) {
+    statusBar.textContent = '> ' + msg;
+  }
+
+  const keyElements = {};
+  const keyByNote = {};
+  NOTES.forEach(function(item) {
+    const btn = document.createElement('div');
+    btn.className = item.type === 'white' ? 'key-white' : 'key-black';
+if (item.type === 'black') btn.style.left = item.left + '%';
+const noteLabel = document.createElement('span');
+noteLabel.textContent = item.note;
+const shortcutLabel = document.createElement('span');
+shortcutLabel.className = 'shortcut';
+shortcutLabel.textContent = item.key.toUpperCase();
+btn.appendChild(noteLabel);
+btn.appendChild(shortcutLabel);
+btn.addEventListener('mousedown', function() { triggerNote(item); });
+keyboardEl.appendChild(btn);
+keyElements[item.key] = btn;
+keyByNote[item.note] = btn;
+});
+window.addEventListener('keydown', function(e) {
+if (e.repeat || e.target.tagName === 'TEXTAREA') return;
+const found = NOTES.find(function(n) { return n.key === e.key.toLowerCase(); });
+if (found) triggerNote(found);
+});
+function ensureAudioContext() {
+if (!audioCtx) {
+const AC = window.AudioContext || window.webkitAudioContext;
+audioCtx = new AC();
+}
+if (audioCtx.state === 'suspended') {
+audioCtx.resume();
+}
+}
+// Полифонический FM-голос с независимой огибающей затухания
+function playPolyNote(params) {
+try {
+ensureAudioContext();
+const now = audioCtx.currentTime;
+const carrier = audioCtx.createOscillator();
+const mod = audioCtx.createOscillator();
+const modGain = audioCtx.createGain();
+const voiceGain = audioCtx.createGain();
+carrier.type = params.waveType || state.waveType;
+carrier.frequency.setValueAtTime(params.carrierFreq, now);
+mod.type = 'sine';
+mod.frequency.setValueAtTime(params.modFreq, now);
+modGain.gain.setValueAtTime(params.modDepth, now);
+modGain.gain.exponentialRampToValueAtTime(Math.max(10, params.modDepth * 0.25), now + 0.8);
+voiceGain.gain.setValueAtTime(0.001, now);
+voiceGain.gain.linearRampToValueAtTime(0.20, now + 0.02);
+voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+mod.connect(modGain);
+modGain.connect(carrier.frequency);
+carrier.connect(voiceGain);
+voiceGain.connect(audioCtx.destination);
+carrier.start(now);
+mod.start(now);
+carrier.stop(now + 0.9);
+mod.stop(now + 0.9);
+carrier.onended = function() {
+carrier.disconnect();
+mod.disconnect();
+modGain.disconnect();
+voiceGain.disconnect();
+};
+} catch (err) {
+console.warn('Polyphonic audio error:', err);
+}
+}
+function flashKey(noteName) {
+const el = keyByNote[noteName];
+if (el) {
+el.classList.add('active');
+setTimeout(function() { el.classList.remove('active'); }, 180);
+}
+}
+function triggerNote(noteObj) {
+const nowMs = performance.now();
+const deltaMs = lastPressTime === null ? 350 : Math.min(1800, Math.max(80, Math.round(nowMs - lastPressTime)));
+lastPressTime = nowMs;
+flashKey(noteObj.note);
+const nextGen = state.generation + 1;
+const interval = Math.abs(noteObj.midi - state.midiNote);
+const pitchIndex = noteObj.midi - 60;
+const harmonicRatios = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+const waveTypes = ['sine', 'triangle', 'sawtooth'];
+const ratioIdx = (pitchIndex + (interval === 0 ? nextGen : 0)) % harmonicRatios.length;
+const chosenRatio = harmonicRatios[ratioIdx];
+const tempoFactor = Math.max(0, Math.round((1000 - Math.min(1000, deltaMs)) / 10));
+const genWavePulse = (nextGen % 5) * 35;
+const carrierFreq = Number(noteObj.freq.toFixed(1));
+const modFreq = Number((noteObj.freq * chosenRatio).toFixed(1));
+const modDepth = Math.min(480, Math.max(35, Math.round(60 + interval * 24 + pitchIndex * 8 + tempoFactor + genWavePulse)));
+const waveType = waveTypes[(pitchIndex + interval + nextGen) % waveTypes.length];
+// Обновляем цепочку генетической памяти (последние 8 нот)
+const updatedDNA = state.melodyDNA.slice(-7);
+updatedDNA.push({
+note: noteObj.note,
+delayMs: updatedDNA.length === 0 ? 0 : deltaMs,
+carrierFreq: carrierFreq,
+modFreq: modFreq,
+modDepth: modDepth,
+waveType: waveType
+});
+state = {
+generation: nextGen,
+noteName: noteObj.note,
+midiNote: noteObj.midi,
+hue: Math.round((state.hue + 137.5 + pitchIndex * 11 + deltaMs / 30) % 360),
+carrierFreq: carrierFreq,
+modFreq: modFreq,
+modDepth: modDepth,
+waveType: waveType,
+lastDeltaMs: deltaMs,
+melodyDNA: updatedDNA
+};
+// Если включен непрерывный фон (drone), плавно перестраиваем и его
+if (isDronePlaying && droneCarrier && audioCtx) {
+const now = audioCtx.currentTime;
+droneCarrier.type = state.waveType;
+droneCarrier.frequency.setTargetAtTime(state.carrierFreq, now, 0.03);
+droneMod.frequency.setTargetAtTime(state.modFreq, now, 0.03);
+droneModGain.gain.setTargetAtTime(state.modDepth, now, 0.03);
+}
+// Запускаем независимый полифонический голос
+playPolyNote(state);
+buildMutatedHTML();
+logStatus('Мутация #' + state.generation + ': нота ' + state.noteName + ' записана в ДНК (' + state.melodyDNA.length + '/8).');
+}
+function stopDNAPlayback() {
+dnaTimers.forEach(function(id) { clearTimeout(id); });
+dnaTimers = [];
+isPlayingDNA = false;
+playDnaBtn.textContent = '▶️ Воспроизвести ДНК предков';
+}
+playDnaBtn.addEventListener('click', function() {
+if (isPlayingDNA) {
+stopDNAPlayback();
+logStatus('Воспроизведение ДНК остановлено.');
+return;
+}
+if (!state.melodyDNA || state.melodyDNA.length === 0) {
+logStatus('Цепочка ДНК пока пуста — сыграйте несколько нот!');
+return;
+}
+ensureAudioContext();
+isPlayingDNA = true;
+playDnaBtn.textContent = '⏹ Остановить ДНК';
+logStatus('Воспроизводится генетическая память (' + state.melodyDNA.length + ' нот)...');
+let cumulativeDelay = 0;
+state.melodyDNA.forEach(function(step, index) {
+if (index > 0) {
+cumulativeDelay += Math.min(1500, Math.max(100, step.delayMs || 300));
+}
+const timerId = setTimeout(function() {
+flashKey(step.note);
+playPolyNote(step);
+if (index === state.melodyDNA.length - 1) {
+const endTimer = setTimeout(function() {
+stopDNAPlayback();
+logStatus('Воспроизведение ДНК предков завершено.');
+}, 400);
+dnaTimers.push(endTimer);
+}
+}, cumulativeDelay);
+dnaTimers.push(timerId);
+});
+});
+function syncUI() {
+document.documentElement.style.setProperty('--hue', state.hue);
+document.getElementById('gen-display').textContent = state.generation;
+document.getElementById('note-display').textContent = state.noteName + ' (' + state.carrierFreq + ' Гц)';
+document.getElementById('modfreq-display').textContent = state.modFreq + ' Гц';
+document.getElementById('depth-display').textContent = state.modDepth;
+document.getElementById('wave-display').textContent = state.waveType;
+const dnaEl = document.getElementById('dna-display');
+if (state.melodyDNA.length === 0) {
+dnaEl.textContent = '🧬 Память предков: пока пуста (сыграйте мелодию)';
+playDnaBtn.disabled = true;
+} else {
+const chainText = state.melodyDNA.map(function(s) { return s.note; }).join(' → ');
+dnaEl.textContent = '🧬 Память предков (' + state.melodyDNA.length + '/8): ' + chainText;
+playDnaBtn.disabled = false;
+}
+}
+function buildMutatedHTML() {
+syncUI();
+const rawStyle = document.getElementById('dynamic-style').textContent;
+const updatedStyle = rawStyle.replace(/--hue:\s*\d+;/, '--hue: ' + state.hue + ';');
+const rawCoreJS = document.getElementById('core-logic').textContent;
+const NL = '\n';
+const lt = String.fromCharCode(60);
+const gt = String.fromCharCode(62);
+const dnaSummary = state.melodyDNA.length > 0
+? state.melodyDNA.map(function(s) { return s.note; }).join(' → ')
+: 'пока пуста';
+const lines = [
+lt + '!DOCTYPE html' + gt,
+lt + 'html lang="ru"' + gt,
+lt + 'head' + gt,
+'  ' + lt + 'meta charset="UTF-8"' + gt,
+'  ' + lt + 'title' + gt + 'FM-синтезатор v2.0 (Поколение ' + state.generation + ')' + lt + '/title' + gt,
+'  ' + lt + 'style id="dynamic-style"' + gt + updatedStyle + lt + '/style' + gt,
+lt + '/head' + gt,
+lt + 'body' + gt,
+lt + 'div class="container"' + gt,
+'  ' + lt + 'h1' + gt + '🧬 FM-синтезатор с генетической памятью (Поколение ' + state.generation + ')' + lt + '/h1' + gt,
+'  ' + lt + 'p' + gt + 'Порождено нотой ' + lt + 'strong' + gt + state.noteName + lt + '/strong' + gt + '. Нажмите «Воспроизвести ДНК предков», чтобы услышать историю этого файла.' + lt + '/p' + gt,
+'  ' + lt + 'div class="stats"' + gt,
+'    ' + lt + 'div' + gt + 'Поколение: ' + lt + 'strong id="gen-display"' + gt + state.generation + lt + '/strong' + gt + lt + '/div' + gt,
+'    ' + lt + 'div' + gt + 'Нота / Тон: ' + lt + 'strong id="note-display"' + gt + state.noteName + ' (' + state.carrierFreq + ' Гц)' + lt + '/strong' + gt + lt + '/div' + gt,
+'    ' + lt + 'div' + gt + 'Модулятор: ' + lt + 'strong id="modfreq-display"' + gt + state.modFreq + ' Гц' + lt + '/strong' + gt + lt + '/div' + gt,
+'    ' + lt + 'div' + gt + 'Глубина FM: ' + lt + 'strong id="depth-display"' + gt + state.modDepth + lt + '/strong' + gt + lt + '/div' + gt,
+'    ' + lt + 'div' + gt + 'Форма волны: ' + lt + 'strong id="wave-display"' + gt + state.waveType + lt + '/strong' + gt + lt + '/div' + gt,
+'  ' + lt + '/div' + gt,
+'  ' + lt + 'div class="dna-chain" id="dna-display"' + gt + '🧬 Память предков (' + state.melodyDNA.length + '/8): ' + dnaSummary + lt + '/div' + gt,
+'  ' + lt + 'canvas id="waveCanvas"' + gt + lt + '/canvas' + gt,
+'  ' + lt + 'div class="keyboard-wrapper"' + gt,
+'    ' + lt + 'div class="keyboard-hint"' + gt + 'Кликайте по клавишам или играйте: A W S E D F T G Y H U J K' + lt + '/div' + gt,
+'    ' + lt + 'div class="keyboard" id="piano-keyboard"' + gt + lt + '/div' + gt,
+'  ' + lt + '/div' + gt,
+'  ' + lt + 'div class="controls"' + gt,
+'    ' + lt + 'button id="play-dna-btn" class="dna-btn" type="button"' + gt + '▶️ Воспроизвести ДНК предков' + lt + '/button' + gt,
+'    ' + lt + 'button id="audio-toggle" class="audio-btn" type="button"' + gt + '🔊 Включить непрерывный звук' + lt + '/button' + gt,
+'    ' + lt + 'button id="download-btn" type="button"' + gt + '💾 Скачать .html' + lt + '/button' + gt,
+'    ' + lt + 'button id="run-btn" class="secondary" type="button"' + gt + '🚀 Запустить клон' + lt + '/button' + gt,
+'    ' + lt + 'button id="copy-btn" class="secondary" type="button"' + gt + '📋 Копировать HTML' + lt + '/button' + gt,
+'  ' + lt + '/div' + gt,
+'  ' + lt + 'div class="status-bar" id="status-bar"' + gt + 'Поколение ' + state.generation + ' активно. Память: ' + state.melodyDNA.length + ' нот.' + lt + '/div' + gt,
+'  ' + lt + 'textarea id="code-output" readonly placeholder="Сыграйте ноту..."' + gt + lt + '/textarea' + gt,
+'  ' + lt + 'div class="clone-box" id="clone-box" style="display: none;"' + gt,
+'    ' + lt + 'div class="clone-header"' + gt,
+'      ' + lt + 'span' + gt + '🧬 Живой экземпляр следующего поколения' + lt + '/span' + gt,
+'      ' + lt + 'button id="close-clone-btn" class="secondary" type="button" style="padding: 0.3rem 0.7rem;"' + gt + '✖ Закрыть окно' + lt + '/button' + gt,
+'    ' + lt + '/div' + gt,
+'    ' + lt + 'iframe id="clone-frame"' + gt + lt + '/iframe' + gt,
+'  ' + lt + '/div' + gt,
+lt + '/div' + gt,
+lt + 'script id="genome-data"' + gt,
+'window.GENOME = ' + JSON.stringify(state, null, 2) + ';',
+lt + '/script' + gt,
+lt + 'script id="core-logic"' + gt + rawCoreJS + lt + '/script' + gt,
+lt + '/body' + gt,
+lt + '/html' + gt
+];
+const fullHTML = lines.join(NL);
+codeOutput.value = fullHTML;
+return fullHTML;
+}
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+let phase = 0;
+function drawWave() {
+canvas.width = canvas.offsetWidth || 700;
+canvas.height = canvas.offsetHeight || 110;
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+ctx.beginPath();
+ctx.strokeStyle = 'hsl(' + state.hue + ', 85%, 60%)';
+ctx.lineWidth = 3;
+const ratio = state.modFreq / (state.carrierFreq || 1);
+const visualDepth = state.modDepth / 55;
+for (let x = 0; x < canvas.width; x++) {
+const t = (x / canvas.width) * Math.PI * 2;
+const modulator = Math.sin(t * ratio * 6 + phase) * visualDepth;
+const rawPhase = t * 6 + modulator;
+let carrierVal = Math.sin(rawPhase);
+if (state.waveType === 'sawtooth') {
+const cycles = rawPhase / (Math.PI * 2);
+carrierVal = 2 * (cycles - Math.floor(0.5 + cycles));
+} else if (state.waveType === 'triangle') {
+carrierVal = Math.asin(Math.sin(rawPhase)) * (2 / Math.PI);
+}
+const y = canvas.height / 2 + carrierVal * (canvas.height * 0.36);
+if (x === 0) ctx.moveTo(x, y);
+else ctx.lineTo(x, y);
+}
+ctx.stroke();
+phase += (isDronePlaying || isPlayingDNA) ? 0.11 : 0.04;
+requestAnimationFrame(drawWave);
+}
+drawWave();
+audioBtn.addEventListener('click', function() {
+ensureAudioContext();
+if (!droneCarrier) {
+droneCarrier = audioCtx.createOscillator();
+droneMod = audioCtx.createOscillator();
+droneModGain = audioCtx.createGain();
+droneMasterGain = audioCtx.createGain();
+droneCarrier.type = state.waveType;
+droneCarrier.frequency.setValueAtTime(state.carrierFreq, audioCtx.currentTime);
+droneMod.type = 'sine';
+droneMod.frequency.setValueAtTime(state.modFreq, audioCtx.currentTime);
+droneModGain.gain.setValueAtTime(state.modDepth, audioCtx.currentTime);
+droneMasterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+droneMod.connect(droneModGain);
+droneModGain.connect(droneCarrier.frequency);
+droneCarrier.connect(droneMasterGain);
+droneMasterGain.connect(audioCtx.destination);
+droneCarrier.start();
+droneMod.start();
+}
+const now = audioCtx.currentTime;
+if (!isDronePlaying) {
+droneCarrier.type = state.waveType;
+droneCarrier.frequency.setTargetAtTime(state.carrierFreq, now, 0.03);
+droneMod.frequency.setTargetAtTime(state.modFreq, now, 0.03);
+droneModGain.gain.setTargetAtTime(state.modDepth, now, 0.03);
+droneMasterGain.gain.cancelScheduledValues(now);
+droneMasterGain.gain.setTargetAtTime(0.14, now, 0.05);
+audioBtn.textContent = '🔇 Выключить непрерывный звук';
+audioBtn.classList.add('playing');
+isDronePlaying = true;
+logStatus('Непрерывный фоновый тон включен.');
+} else {
+droneMasterGain.gain.cancelScheduledValues(now);
+droneMasterGain.gain.setTargetAtTime(0, now, 0.05);
+audioBtn.textContent = '🔊 Включить непрерывный звук';
+audioBtn.classList.remove('playing');
+isDronePlaying = false;
+logStatus('Фоновый тон выключен.');
+}
+});
+downloadBtn.addEventListener('click', function() {
+const code = codeOutput.value || buildMutatedHTML();
+const safeNote = state.noteName.replace('#', 'sharp');
+const fileName = 'fm-synth-v2-gen-' + state.generation + '-' + safeNote + '.html';
+const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = fileName;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
+logStatus('Скачан HTML-файл с ДНК предков: ' + fileName);
+});
+runBtn.addEventListener('click', function() {
+if (isDronePlaying) audioBtn.click();
+stopDNAPlayback();
+const code = codeOutput.value || buildMutatedHTML();
+cloneBox.style.display = 'block';
+cloneFrame.srcdoc = code;
+logStatus('Запущен живой клон поколения #' + state.generation + ' (в памяти ' + state.melodyDNA.length + ' нот).');
+setTimeout(function() {
+cloneBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}, 100);
+});
+closeCloneBtn.addEventListener('click', function() {
+cloneBox.style.display = 'none';
+cloneFrame.srcdoc = '';
+logStatus('Окно клона закрыто.');
+});
+copyBtn.addEventListener('click', function() {
+const code = codeOutput.value || buildMutatedHTML();
+codeOutput.select();
+if (navigator.clipboard && navigator.clipboard.writeText) {
+navigator.clipboard.writeText(code).then(function() {
+logStatus('Полноценный HTML-код скопирован в буфер обмена!');
+}).catch(function() {
+document.execCommand('copy');
+logStatus('HTML-код скопирован.');
+});
+} else {
+document.execCommand('copy');
+logStatus('HTML-код скопирован.');
+}
+});
+buildMutatedHTML();
+})();
+</script>
+
+</body>
+</html>	
